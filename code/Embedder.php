@@ -225,21 +225,20 @@ class Embedder extends DataExtension
 			$url .= '&maxheight='.self::getInstance()->height;
 		}
 		$fileName = md5($url).'.json';
-		if(!$json = self::getInstance()->getCacheFile($fileName, $url)) {
+		if(!$json = self::getInstance()->loadJson($url)) {
 			return false;
 		}
 		// Decode json to an object
-		$obj = json_decode($json);
-		if($obj->type == 'video') {
-			$html = $obj->html;
+		if($json->type == 'video') {
+			$html = $json->html;
 			// Calculate size
-			if($size = self::getInstance()->calculateSize($obj->width, $obj->height)) {
+			if($size = self::getInstance()->calculateSize($json->width, $json->height)) {
 				$resize = [];
-				if(isset($obj->width) && $size['width']) {
-					$resize['width="'.$obj->width.'"'] = 'width="'.$size['width'].'"';
+				if(isset($json->width) && $size['width']) {
+					$resize['width="'.$json->width.'"'] = 'width="'.$size['width'].'"';
 				}
-				if(isset($obj->height) && $size['height']) {
-					$resize['height="'.$obj->height.'"'] = 'height="'.$size['height'].'"';
+				if(isset($json->height) && $size['height']) {
+					$resize['height="'.$json->height.'"'] = 'height="'.$size['height'].'"';
 				}
 				if($resize) {
 					$html = str_replace(array_keys($resize), array_values($resize), $html);
@@ -247,19 +246,19 @@ class Embedder extends DataExtension
 			}
 			return $html;
 		}
-		if($obj->type == 'photo') {
+		if($json->type == 'photo') {
 			// Image template
 			$template = '<img src="%s" width="%d" height="%d" class="embed-%s" title="%s"/>';
 			// Calculate size
-			if($size = self::getInstance()->calculateSize($obj->width, $obj->height)) {
-				$obj->width = $size['width'];
-				$obj->height = $size['height'];
+			if($size = self::getInstance()->calculateSize($json->width, $json->height)) {
+				$json->width = $size['width'];
+				$json->height = $size['height'];
 			}
-			$title = strip_tags($obj->title);
+			$title = strip_tags($json->title);
 			if(empty($title)) {
-				$title = $obj->provider_name;
+				$title = $json->provider_name;
 			}
-			return sprintf($template, $obj->url, $obj->width, $obj->height, strtolower($obj->provider_name), $title);
+			return sprintf($template, $json->url, $json->width, $json->height, strtolower($json->provider_name), $title);
 		}
 		return false;
 	}
@@ -307,27 +306,38 @@ class Embedder extends DataExtension
 	}
 
 	/**
-	 * Get file from cache or download file to cache if it does not exist
+	 * Load oEmbed json and return it as stdclass object
 	 *
-	 * @param string $fileName
-	 * @param string $sourceUrl
-	 * @return mixed or boolean false on failure
+	 * @param string $url
+	 * @param bool $refresh
+	 * @return bool|stdclass
 	 */
-	private function getCacheFile($fileName, $sourceUrl) {
-		$cacheFolderPath = dirname(dirname(__FILE__)).'/cache';
-		if(!is_dir($cacheFolderPath)) {
-			Filesystem::makeFolder($cacheFolderPath);
+	private function loadJson($url, $refresh=false) {
+		$cacheKey = md5($url);
+		// Get the Zend Cache to load/store cache into
+		$cache = SS_Cache::factory('Embedder_json_', 'Output', array(
+			'automatic_serialization' => false,
+			'lifetime' => null
+		));
+		// Unless force refreshing, try loading from cache
+		if (!$refresh) {
+			if($json = $cache->load($cacheKey)) {
+				return json_decode($json);
+			}
 		}
-		if(!is_file($cacheFolderPath.'/.htaccess')) {
-			file_put_contents($cacheFolderPath.'/.htaccess', "order deny, allow\ndeny from all", LOCK_EX);
-		}
-		$cachePath = $cacheFolderPath.'/'.$fileName;
-		if(is_file($cachePath)) {
-			return file_get_contents($cachePath);
-		}
-		if($data = file_get_contents($sourceUrl)) {
-			file_put_contents($cachePath, $data, LOCK_EX);
-			return $data;
+		// Load json and cache it
+		$json = file_get_contents($url);
+		if(!empty($json)) {
+			try {
+				$jsonObj = json_decode($json);
+			}
+			catch(Exception $e) {
+				return false;
+			}
+			if($jsonObj) {
+				$cache->save($json, $cacheKey);
+				return $jsonObj;
+			}
 		}
 		return false;
 	}

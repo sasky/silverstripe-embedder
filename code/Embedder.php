@@ -314,7 +314,7 @@ class Embedder extends DataExtension
 	 * @return mixed or boolean false on failure
 	 */
 	private function getCacheFile($fileName, $sourceUrl) {
-		$cacheFolderPath = realpath(__DIR__.'/..').'/cache';
+		$cacheFolderPath = dirname(dirname(__FILE__)).'/cache';
 		if(!is_dir($cacheFolderPath)) {
 			Filesystem::makeFolder($cacheFolderPath);
 		}

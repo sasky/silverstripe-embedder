@@ -40,21 +40,21 @@ class Embedder extends DataExtension
 	 *
 	 * @var array
 	 */
-	private $fields = [];
+	private $fields = array();
 	
 	/**
 	 * Handlers to match
 	 *
 	 * @var array
 	 */
-	private $handlers = [];
+	private $handlers = array();
 
 	/**
 	 * Element tags to render
 	 *
 	 * @var array
 	 */
-	private $tags = [];
+	private $tags = array();
 
 	/**
 	 * Factory
@@ -131,17 +131,17 @@ class Embedder extends DataExtension
 			$className = '*';
 		}
 		if(!is_array($className)) {
-			$className = [$className];
+			$className = array($className);
 		}
 		if(!is_string($fieldName)) {
 			$fieldName = '*';
 		}
 		if(!is_array($fieldName)) {
-			$fieldName = [$fieldName];
+			$fieldName = array($fieldName);
 		}
 		foreach($className as $cName) {
 			if(!isset(self::getInstance()->fields[$cName])) {
-				self::getInstance()->fields[$cName] = [];
+				self::getInstance()->fields[$cName] = array();
 			}
 			if($cName == '*') {
 				foreach(self::getInstance()->fields as $cName => &$fields) {
@@ -188,7 +188,7 @@ class Embedder extends DataExtension
 	 */
 	public function registerTags($tagNames) {
 		if(!is_array($tagNames)) {
-			$tagNames = [$tagNames];
+			$tagNames = array($tagNames);
 		}
 		self::getInstance()->tags = array_merge(self::getInstance()->tags, $tagNames);
 		self::getInstance()->tags = array_unique(self::getInstance()->tags);
@@ -233,7 +233,7 @@ class Embedder extends DataExtension
 			$html = $json->html;
 			// Calculate size
 			if($size = self::getInstance()->calculateSize($json->width, $json->height)) {
-				$resize = [];
+				$resize = array();
 				if(isset($json->width) && $size['width']) {
 					$resize['width="'.$json->width.'"'] = 'width="'.$size['width'].'"';
 				}
@@ -348,7 +348,7 @@ class Embedder extends DataExtension
 	 * @param Controller $controller
 	 */
 	function contentcontrollerInit($controller) {
-		$fields = [];
+		$fields = array();
 		if(isset(self::getInstance()->fields['*'])) {
 			$fields = array_merge($fields, self::getInstance()->fields['*']);
 		}

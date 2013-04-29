@@ -60,7 +60,7 @@ for more information.
 
 Embedder can also render pasted HTML code based on tag names:
 
-	Embedder::getInstance()->registerTags(["object","iframe","embed"]);
+	Embedder::getInstance()->registerTags(array("object","iframe","embed"));
 
 This registers &lt;object&gt;, &lt;iframe&gt; and &lt;embed&gt;-tags to be rendered as objects instead of HTML entities.
 For example, if the following code is pasted in an Embedder-enabled field it will be rendered as an iframe:

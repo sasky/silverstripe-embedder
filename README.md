@@ -2,7 +2,10 @@
 
 Embedder enables embedding in content fields area similar to how embeds work in WordPress, and can embed media from
 pasted links and HTML code.
-It has been tested with SilverStripe 3.0.5
+
+## Requirements
+
+* SilverStripe 3.0
 
 ## Installation
 

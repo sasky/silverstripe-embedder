@@ -1,0 +1,7 @@
+---
+Name: silverstripe-embedder
+After: 'framework/*','cms/*'
+---
+SiteTree:
+  extensions:
+    - Embedder

@@ -12,7 +12,7 @@ class EmbedderProvider_Instagram
 		// Render embed from Instagram links, the following formats are recognized:
 		// http://[www.]instagram.com/p/YGRvxQJiOn
 		Embedder::getInstance()->registerHandler(
-			"/([^\"|'|=])(http:\/\/)(www\.|)(instagram\.com\/p\/)([a-z0-9\-_]*)(\/|)([^a-z0-9\-_])/isU",
+			"/([^\"|'|=])(https?:\/\/)(www\.|)(instagram\.com\/p\/)([a-z0-9\-_]*)(\/|)([^a-z0-9\-_])/isU",
 			array(__CLASS__, "render")
 		);
 	}

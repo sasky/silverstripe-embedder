@@ -12,7 +12,7 @@ class EmbedderProvider_Vimeo
 		// Render embed from Vimeo links, the following formats are recognized:
 		// http://[www.]vimeo.com/20241459
 		Embedder::getInstance()->registerHandler(
-			"/([^\"|'|=])(http:\/\/)(www\.|)(vimeo\.com\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
+			"/([^\"|'|=])(https?:\/\/)(www\.|)(vimeo\.com\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
 			array(__CLASS__, "render")
 		);
 	}

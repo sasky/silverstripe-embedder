@@ -12,7 +12,7 @@ class EmbedderProvider_Flickr
 		// Render embed from Flickr links, the following formats are recognized:
 		// http://[www.]flickr.com/photos/asimomytis_photography/8594949556
 		Embedder::getInstance()->registerHandler(
-			"/([^\"|'|=])(http:\/\/)(www\.|)(flickr\.com\/photos\/)([^\/]*)(\/)([\d]*)([^\d])/isU",
+			"/([^\"|'|=])(https?:\/\/)(www\.|)(flickr\.com\/photos\/)([^\/]*)(\/)([\d]*)([^\d])/isU",
 			array(__CLASS__, "render")
 		);
 	}

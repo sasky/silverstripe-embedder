@@ -13,7 +13,7 @@ class EmbedderProvider_Youtube
 		// http://[www.]youtube.com/v/dQw4w9WgXcQ
 		// http://[www.]youtube.com/watch?v=dQw4w9WgXcQ
 		Embedder::getInstance()->registerHandler(
-				"/([^\"|'|=])(http:\/\/)(www\.|)(youtube\.com\/)(watch\?|)(v)(=|\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
+				"/([^\"|'|=])(https?:\/\/)(www\.|)(youtube\.com\/)(watch\?|)(v)(=|\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
 				array(__CLASS__, "render")
 		);
 	}

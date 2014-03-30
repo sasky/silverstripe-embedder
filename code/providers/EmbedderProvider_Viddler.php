@@ -12,7 +12,7 @@ class EmbedderProvider_Viddler
 		// Render embed from Viddler links, the following formats are recognized:
 		// http://[www.]viddler.com/v/6d064c53
 		Embedder::getInstance()->registerHandler(
-			"/([^\"|'|=])(http:\/\/)(www\.|)(viddler\.com\/v\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
+			"/([^\"|'|=])(https?:\/\/)(www\.|)(viddler\.com\/v\/)([a-z0-9\-_]*)([^a-z0-9\-_])/isU",
 			array(__CLASS__, "render")
 		);
 	}

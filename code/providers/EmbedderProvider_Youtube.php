@@ -26,7 +26,7 @@ class EmbedderProvider_Youtube
 	 */
 	public static function render($matches) {
 		// Render from oEmbed json
-		if($html = Embedder::getInstance()->renderHTML('http://www.youtube.com/oembed?url=http%3A//www.youtube.com/watch%3Fv%3D'.$matches[8])) {
+		if($html = Embedder::getInstance()->renderHTML('http://www.youtube.com/oembed?scheme=https&url=http%3A//www.youtube.com/watch%3Fv%3D'.$matches[8])) {
 			return $matches[1] . $html . end($matches);
 		}
 		// Failed to get oembed, return original HTML

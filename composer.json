@@ -1,18 +1,16 @@
 {
-	"name": "richardsjoqvist/silverstripe-embedder",
-	"type": "silverstripe-module",
-	"description": "Embedder enables embedding media in content fields area similar to how embeds work in WordPress",
-	"homepage": "https://github.com/richardsjoqvist/silverstripe-embedder",
-	"keywords": ["silverstripe", "module", "embedder"],
-	"authors": [
-		{
-			"name": "Richard Sjöqvist",
-			"homepage": "https://github.com/richardsjoqvist"
-		}
-	],
-	"require": {
-		"php": ">=5.3.2",
-		"composer/installers": "*",
-		"silverstripe/framework": "~3.1"
-	}
+    "name": "richardsjoqvist/silverstripe-embedder",
+    "type": "silverstripe-module",
+    "description": "Embedder enables embedding media in content fields area similar to how embeds work in WordPress",
+    "homepage": "https://github.com/richardsjoqvist/silverstripe-embedder",
+    "keywords": ["silverstripe", "module", "embedder"],
+    "authors": [{
+        "name": "Richard Sjöqvist",
+        "homepage": "https://github.com/richardsjoqvist"
+    }],
+    "require": {
+        "php": ">=5.6",
+        "composer/installers": "*",
+        "silverstripe/framework": "^4"
+    }
 }

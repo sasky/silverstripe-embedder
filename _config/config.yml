@@ -1,7 +1,13 @@
 ---
 Name: silverstripe-embedder
-After: 'framework/*','cms/*'
 ---
-SiteTree:
+
+SilverStripe\CMS\Model\SiteTree:
   extensions:
-    - Embedder
+    - richardsjoqvist\silverstripeEmbedder\Embedder
+
+SilverStripe\Core\Injector\Injector:
+  Psr\SimpleCache\CacheInterface.silverstripeEmbedder:
+    factory: SilverStripe\Core\Cache\CacheFactory
+    constructor:
+      namespace: "silverstripeEmbedder"

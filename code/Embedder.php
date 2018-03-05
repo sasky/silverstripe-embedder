@@ -1,388 +1,317 @@
 <?php
+
+namespace RichardsJoqvist\silverstripeEmbedder;
+use RichardsJoqvist\silverstripeEmbedder\Youtube;
+use RichardsJoqvist\silverstripeEmbedder\Vimeo;
+
+use SilverStripe\ORM\DataExtension;
+use SilverStripe\Core\Injector\Injector;
+
 /**
  * Extend {@link DataExtension} with methods to render embedded media from links in content
  */
+
 class Embedder extends DataExtension
 {
+    /**
+     * Exact width of embedded media
+     * If set then media embedded from links will have this exact width. Media embedded from tags is not affected.
+     *
+     * @var int $width
+     */
+    private $width = null;
 
-	/**
-	 * Exact width of embedded media
-	 * If set then media embedded from links will have this exact width. Media embedded from tags is not affected.
-	 *
-	 * @var int $width
-	 */
-	private $width = null;
+    /**
+     * Exact height of embedded media
+     * If set then media embedded from links will have this exact width. Media embedded from tags is not affected.
+     *
+     * @var int $height
+     */
+    private $height = null;
 
-	/**
-	 * Exact height of embedded media
-	 * If set then media embedded from links will have this exact width. Media embedded from tags is not affected.
-	 *
-	 * @var int $height
-	 */
-	private $height = null;
+    /**
+     * Max width of embedded media
+     *
+     * @var int $width
+     */
+    private $maxWidth = null;
 
-	/**
-	 * Max width of embedded media
-	 *
-	 * @var int $width
-	 */
-	private $maxwidth = null;
+    /**
+     * Max height of embedded media
+     *
+     * @var int $height
+     */
+    private $maxHeight = null;
 
-	/**
-	 * Max height of embedded media
-	 *
-	 * @var int $height
-	 */
-	private $maxheight = null;
+    /**
+     * Fields to execute embedder on
+     *
+     * @var array
+     */
+    private $fields = [];
 
-	/**
-	 * Fields to execute embedder on
-	 *
-	 * @var array
-	 */
-	private $fields = array();
+    /**
+     * List of ClassNames that implement IEmbedderProvider
+     *
+     * @var array
+    */
+
+    private $providers = [];
+
+
+    /**
+     * Element tags to render
+     *
+     * @var array
+     */
+    private $tags = [];
+
+
+    
+    private static $dependencies = [
+        'cache' => '%$Psr\SimpleCache\CacheInterface.silverstripeEmbedder' // see _config/cache.yml
+    ];
+
+    /**
+     * @var Psr\SimpleCache\CacheInterface
+     */
+    public $cache;
+
+
+
+    /**
+     * Render HTML from oEmbed response
+     *
+     * @param  string $url to oEmbed service
+     * @return string HTML or boolean false on failure
+     */
+    public function renderHTML($url)
+    {
+		$width = $this->owner->config()->get('width');
+		$maxWidth = $this->owner->config()->get('maxWidth');
+		$height = $this->owner->config()->get('height');
+		$maxHeight = $this->owner->config()->get('maxHeight'); 
+
+        // Get json
+        $url .= '&format=json';
+        if ($width || $maxWidth) {
+			$urlWidth = ($maxWidth) ? $maxWidth : $width;
+            $url .= '&maxwidth=' . $urlWidth;
+        }
+        if ($height || $maxHeight) {
+			$urlHeight = ($maxHeight) ? $maxHeight : $height; 
+            $url .= '&maxheight=' . $urlHeight;
+        }
+        $fileName = md5($url) . '.json';
 	
-	/**
-	 * Handlers to match
-	 *
-	 * @var array
-	 */
-	private $handlers = array();
+        if (!$json = $this->loadJson($url)) {
+            return false;
+        }
+        // Decode json to an object
+        if ($json->type == 'video') {
+            $html = $json->html;
+            // Calculate size
+            if ($size = $this->calculateSize($json->width, $json->height)) {
+                $resize = [];
+                if (isset($json->width) && $size['width']) {
+                    $resize['width="' . $json->width . '"'] = 'width="' . $size['width'] . '"';
+                }
+                if (isset($json->height) && $size['height']) {
+                    $resize['height="' . $json->height . '"'] = 'height="' . $size['height'] . '"';
+                }
+                if ($resize) {
+                    $html = str_replace(array_keys($resize), array_values($resize), $html);
+                }
+            }
 
-	/**
-	 * Element tags to render
-	 *
-	 * @var array
-	 */
-	private $tags = array();
+            return $html;
+        }
+        if ($json->type == 'photo') {
+            // Image template
+            $template = '<img src="%s" width="%d" height="%d" class="embed-%s" title="%s"/>';
+            // Calculate size
+            if ($size = $this->calculateSize($json->width, $json->height)) {
+                $json->width = $size['width'];
+                $json->height = $size['height'];
+            }
+            $title = strip_tags($json->title);
+            if (empty($title)) {
+                $title = $json->provider_name;
+            }
 
-	/**
-	 * Factory
-	 *
-	 * @return Embedder
-	 */
-	public static function getInstance() {
-		static $instance = null;
-		if($instance === null) {
-			$instance = new Embedder();
-		}
-		return $instance;
-	}
+            return sprintf($template, $json->url, $json->width, $json->height, strtolower($json->provider_name), $title);
+        }
+        if($json->type === 'rich' && $json->html) // Instagram type
+        {
+            return $json->html;
+        }
 
-	/**
-	 * Constructor
-	 */
-	function __construct() {
-		parent::__construct();
-	}
-	
-	/**
-	 * Set exact width for embedded media
-	 *
-	 * @param int $width
-	 */
-	public function setWidth($width) {
-		if((int)$width > 0) {
-			self::getInstance()->width = (int)$width;
-		}
-	}
+        return false;
+    }
 
-	/**
-	 * Set exact height for embedded media
-	 *
-	 * @param int $height
-	 */
-	public function setHeight($height) {
-		if((int)$height > 0) {
-			self::getInstance()->height = (int)$height;
-		}
-	}
+    /**
+     * Calculate embed size (maintaining aspect ratio)
+     *
+     * @param  int   $width  original width of media
+     * @param  int   $height original height of media
+     * @return array
+     */
+    public function calculateSize($mediaWidth, $mediaHeight)
+    {
+        try {
+            $mediaWidth = (int) $mediaWidth;
+            $mediaHeight = (int) $mediaHeight;
 
-	/**
-	 * Set max width for embedded media
-	 *
-	 * @param int $width
-	 */
-	public function setMaxWidth($width) {
-		if((int)$width > 0) {
-			self::getInstance()->maxwidth = (int)$width;
-		}
-	}
+			$width = $this->owner->config()->get('width');
+			$maxWidth = $this->owner->config()->get('maxWidth');
+			$height = $this->owner->config()->get('height');
+			$maxHeight = $this->owner->config()->get('maxHeight'); 
 
-	/**
-	 * Set max height for embedded media
-	 *
-	 * @param int $height
-	 */
-	public function setMaxHeight($height) {
-		if((int)$height > 0) {
-			self::getInstance()->maxheight = (int)$height;
-		}
-	}
+            if ($width) {
+                if (!$height) {
+                    $mediaHeight = round($mediaHeight  * ($width / $mediaWidth));
+                }
+                $mediaWidth = $width;
+            } elseif ($maxWidth) {
+                if ($mediaWidth > $maxWidth) {
+                    $mediaHeight = round($mediaHeight * ($maxWidth / $mediaWidth));
+                    $mediaWidth = $maxWidth;
+                }
+            }
+            if ($height) {
+                if (!$width) {
+                    $mediaWidth = round($mediaWidth * ($height / $mediaHeight));
+                }
+                $mediaHeight = $height;
+            } elseif ($maxHeight) {
+                if ($mediaHeight > $maxHeight) {
+                    $mediaWidth = round($mediaWidth * ($maxHeight / $mediaHeight));
+                    $mediaHeight = $maxHeight;
+                }
+            }
 
-	/**
-	 * Register content field to enable embedder on
-	 *
-	 * @param mixed $className; Like "Page", or "BlogEntry", or array("Page","BlogEntry"), or "*" (for all types)
-	 * @param mixed $fieldName; Like "Title", or "LeadIn", or array("Title","LeadIn"), or "*" (for all fields)
-	 */
-	public function registerField($className, $fieldName) {
-		if(!is_string($className)) {
-			$className = '*';
-		}
-		if(!is_array($className)) {
-			$className = array($className);
-		}
-		if(!is_string($fieldName)) {
-			$fieldName = '*';
-		}
-		if(!is_array($fieldName)) {
-			$fieldName = array($fieldName);
-		}
-		foreach($className as $cName) {
-			if(!isset(self::getInstance()->fields[$cName])) {
-				self::getInstance()->fields[$cName] = array();
-			}
-			if($cName == '*') {
-				foreach(self::getInstance()->fields as $cName => &$fields) {
-					if($cName == '*') {
-						continue;
-					}
-					foreach($fieldName as $fName) {
-						$index = array_search($fName, $fields);
-						if($index !== false) {
-							unset($fields[$index]);
-						}
-					}
-				}
-			}
-			foreach($fieldName as $fName) {
-				self::getInstance()->fields[$cName][] = $fName;
-			}
-			self::getInstance()->fields[$cName] = array_unique(self::getInstance()->fields[$cName]);
-		}
-		foreach(self::getInstance()->fields as $cName => $fields) {
-			if(empty($fields)) {
-				unset(self::getInstance()->fields[$cName]);
-			}
-		}
-	}
+            return ['width' => $mediaWidth, 'height' => $mediaHeight];
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 
-	/**
-	 * Register handler
-	 *
-	 * @param string $pattern regular expression
-	 * @param mixed $callback callable (http://www.php.net/manual/en/language.types.callable.php)
-	 */
-	public function registerHandler($pattern, $callback) {
-		$o = new stdClass();
-		$o->pattern = $pattern;
-		$o->callback = $callback;
-		self::getInstance()->handlers[] = $o;
-	}
-
-	/**
-	 * Register HTML element tags to be rendered
-	 *
-	 * @param array $tagNames
-	 */
-	public function registerTags($tagNames) {
-		if(!is_array($tagNames)) {
-			$tagNames = array($tagNames);
-		}
-		self::getInstance()->tags = array_merge(self::getInstance()->tags, $tagNames);
-		self::getInstance()->tags = array_unique(self::getInstance()->tags);
-	}
-
-	/**
-	 * Register provider
-	 *
-	 * @param string $name (ex: Youtube corresponds to class EmbedderProvider_Youtube)
-	 * @return boolean
-	 */
-	public function registerProvider($name) {
-		$className = 'EmbedderProvider_'.$name;
-		if(class_exists($className)) {
-			$className::register();
-			return true;
-		}
-		return false;
-	}
-
-	/**
-	 * Render HTML from oEmbed response
-	 *
-	 * @param string $url to oEmbed service
-	 * @return string HTML or boolean false on failure
-	 */
-	public function renderHTML($url) {
-		// Get json
-		$url .= '&format=json';
-		if(self::getInstance()->width || self::getInstance()->maxwidth) {
-			$url .= '&maxwidth='.self::getInstance()->width;
-		}
-		if(self::getInstance()->height || self::getInstance()->maxheight) {
-			$url .= '&maxheight='.self::getInstance()->height;
-		}
-		$fileName = md5($url).'.json';
-		if(!$json = self::getInstance()->loadJson($url)) {
-			return false;
-		}
-		// Decode json to an object
-		if($json->type == 'video') {
-			$html = $json->html;
-			// Calculate size
-			if($size = self::getInstance()->calculateSize($json->width, $json->height)) {
-				$resize = array();
-				if(isset($json->width) && $size['width']) {
-					$resize['width="'.$json->width.'"'] = 'width="'.$size['width'].'"';
-				}
-				if(isset($json->height) && $size['height']) {
-					$resize['height="'.$json->height.'"'] = 'height="'.$size['height'].'"';
-				}
-				if($resize) {
-					$html = str_replace(array_keys($resize), array_values($resize), $html);
-				}
-			}
-			return $html;
-		}
-		if($json->type == 'photo') {
-			// Image template
-			$template = '<img src="%s" width="%d" height="%d" class="embed-%s" title="%s"/>';
-			// Calculate size
-			if($size = self::getInstance()->calculateSize($json->width, $json->height)) {
-				$json->width = $size['width'];
-				$json->height = $size['height'];
-			}
-			$title = strip_tags($json->title);
-			if(empty($title)) {
-				$title = $json->provider_name;
-			}
-			return sprintf($template, $json->url, $json->width, $json->height, strtolower($json->provider_name), $title);
-		}
-		return false;
-	}
-
-	/**
-	 * Calculate embed size (maintaining aspect ratio)
-	 *
-	 * @param int $width original width of media
-	 * @param int $height original height of media
-	 * @return array
-	 */
-	public function calculateSize($width, $height) {
-		try {
-			$width = (int) $width;
-			$height = (int) $height;
-			if(self::getInstance()->width) {
-				if(!self::getInstance()->height) {
-					$height = round($height * (self::getInstance()->width / $width));
-				}
-				$width = self::getInstance()->width;
-			}
-			else if(self::getInstance()->maxwidth) {
-				if($width > self::getInstance()->maxwidth) {
-					$height = round($height * (self::getInstance()->maxwidth / $width));
-					$width = self::getInstance()->maxwidth;
-				}
-			}
-			if(self::getInstance()->height) {
-				if(!self::getInstance()->width) {
-					$width = round($width * (self::getInstance()->height / $height));
-				}
-				$height = self::getInstance()->height;
-			}
-			else if(self::getInstance()->maxheight) {
-				if($height > self::getInstance()->maxheight) {
-					$width = round($width * (self::getInstance()->maxheight / $height));
-					$height = self::getInstance()->maxheight;
-				}
-			}
-			return array('width'=>$width, 'height'=>$height);
-		}
-		catch(Exception $e) {
-			return false;
-		}
-	}
-
-	/**
-	 * Load oEmbed json and return it as stdclass object
-	 *
-	 * @param string $url
-	 * @param bool $refresh
-	 * @return bool|stdclass
-	 */
-	private function loadJson($url, $refresh=false) {
+    /**
+     * Load oEmbed json and return it as stdclass object
+     *
+     * @param  string        $url
+     * @param  bool          $refresh
+     * @return bool|stdclass
+     */
+    private function loadJson($url, $refresh = false)
+    {
 		$cacheKey = md5($url);
-		// Get the Zend Cache to load/store cache into
-		$cache = SS_Cache::factory('Embedder_json_', 'Output', array(
-			'automatic_serialization' => false,
-			'lifetime' => null
-		));
-		// Unless force refreshing, try loading from cache
-		if (!$refresh) {
-			if($json = $cache->load($cacheKey)) {
-				return json_decode($json);
-			}
-		}
-		// Load json and cache it
-		$json = file_get_contents($url);
-		if(!empty($json)) {
-			try {
-				$jsonObj = json_decode($json);
-			}
-			catch(Exception $e) {
-				return false;
-			}
-			if($jsonObj) {
-				$cache->save($json, $cacheKey);
-				return $jsonObj;
-			}
-		}
-		return false;
-	}
+        
+        // Unless force refreshing, try loading from cache
+        if (!$refresh) {
+            if ($json = $this->cache->get($cacheKey)) {
+                return json_decode($json);
+            }
+        }
+        // Load json and cache it
+        $json = file_get_contents($url);
+        if (!empty($json)) {
+            try {
+                $jsonObj = json_decode($json);
+            } catch (Exception $e) {
+                return false;
+            }
+            if ($jsonObj) {
+                $this->cache->set($cacheKey,$json);
 
-	/**
-	 * Render embeds
-	 *
-	 * @param Controller $controller
-	 */
-	function contentcontrollerInit($controller) {
-		$fields = array();
-		if(isset(self::getInstance()->fields['*'])) {
-			$fields = array_merge($fields, self::getInstance()->fields['*']);
-		}
-		if(isset(self::getInstance()->fields[$this->owner->class])) {
-			$fields = array_merge($fields, self::getInstance()->fields[$this->owner->class]);
-		}
-		if(!$fields) {
-			return;
-		}
-		foreach($fields as $field) {
-			$content = $controller->$field;
-			if(empty($content)) {
-				continue;
-			}
-			foreach(self::getInstance()->tags as $tag) {
-				preg_match_all("/(\&lt;{$tag}\s)(.*)(\/{$tag}\&gt;)/isU", $content, $m);
-				$m = array_unique($m[0]);
-				foreach($m as $match) {
-					$content = str_replace($match, html_entity_decode($match), $content);
-				}
-			}
-			foreach(self::getInstance()->handlers as $handler) {
-				$content = preg_replace_callback($handler->pattern, $handler->callback, $content);
-			}
-			$controller->$field = $content;
-		}
-	}
+                return $jsonObj;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Render embeds
+     *
+     * @param Controller $controller
+     */
+    public function contentcontrollerInit($controller)
+    {
+        $configFields =$this->owner->config()->get('fields');
+        if (!is_array($configFields)) {
+            user_error('Fields Not Set, Content Fields need to be set in a yml config file. See Readme for details ', E_USER_ERROR);
+        }
 	
-	/**
-	 * Model as controller
-	 *
-	 * @param Controller $controller
-	 */
-	function modelascontrollerInit($controller) {
-	}
+  
+		$className = $this->owner->data()->className;
+	
+        // Get the Wild Fields that apply to all SiteTree Models
 
+        $fieldsToApplyEmbeddersTo = $this->convertToArray('all', $configFields);
+
+        // Get the Fields set to apply to this controllers SiteTree object
+        $fieldsToApplyEmbeddersTo = array_merge(
+            $fieldsToApplyEmbeddersTo,
+            $this->convertToArray($className, $configFields)
+        );
+
+
+        if (empty($fieldsToApplyEmbeddersTo)) {
+            return;
+        }
+
+		$providers = $this->owner->config()->get('providers');
+        $tags = $this->owner->config()->get('tags');
+
+        foreach ($fieldsToApplyEmbeddersTo as $field) {
+            $content = $controller->data()->$field;
+            if (!$content || empty($content)) {
+                continue;
+			}
+		
+			foreach ($providers as $providerClassName) {
+				$provider = new $providerClassName($this);
+				$content = preg_replace_callback(
+					$provider->pattern(), 
+					function($matches) use ($provider) {
+						return $provider->render($matches);
+					},
+			 		$content);	
+
+			}
+
+
+			
+            if($tags && is_array($tags)) {
+                foreach ($tags  as $tag) {
+                    preg_match_all("/(\&lt;{$tag}\s)(.*)(\/{$tag}\&gt;)/isU", $content, $m);
+                    $m = array_unique($m[0]);
+                    foreach ($m as $match) {
+                        $content = str_replace($match, html_entity_decode($match), $content);
+                    }
+                }
+            }
+
+            
+            $controller->data()->$field = $content;
+			
+
+		}
+	
+    }
+
+    private function convertToArray($key, $array)
+    {
+        if (!isset($array[$key])) {
+            return [];
+        }
+        $value = $array[$key];
+        if (is_string($value)) {
+            return [$value];
+        } elseif (is_array($value)) {
+            return $value;
+        }
+        user_error('Config value needs to be a string or Array', E_USER_ERROR);
+    }
 }
